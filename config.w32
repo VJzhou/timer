@@ -1,0 +1,7 @@
+ARG_ENABLE('timer', 'timer support', 'no');
+
+if (PHP_TIMER != 'no') {
+	AC_DEFINE('HAVE_TIMER', 1, 'timer support enabled');
+
+	EXTENSION('timer', 'timer.c task.c', null, '/DZEND_ENABLE_STATIC_TSRMLS_CACHE=1');
+}
