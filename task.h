@@ -24,6 +24,7 @@ typedef struct _fi {
 } Fi;
 
 extern  zend_class_entry *task_class_entry_p;
+enum {SECOND=0, MINUTE, HOUR, DAY};
 
 TIMER_MINIT_FUNCTION(task);
 
