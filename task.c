@@ -22,15 +22,14 @@
 
 zend_class_entry *task_class_entry_p;
 static sigset_t alarm_set;
-Fi fi, fail_fi;
-
+Fi fi;
 
 //===========方法申明
 static PHP_METHOD(Task, run);
 static PHP_METHOD(Task, setTime);
+static PHP_METHOD(Task, flock);
 void init_sigaction ();
 void init_timer();
-
 
 //===========方法实现
 void init_sigaction (void (*func)()) {
@@ -46,25 +45,19 @@ void init_sigaction (void (*func)()) {
 // 捕获CTRL C 信号, 处理
 static zend_always_inline void timer_exit (int signo) {
     php_printf("exited");
-    //    mudule_destructor();
-//    php_request_shutdown((void*)0); // main/php_main.h
-//    php_module_shutdown();
-//    sapi_shutdown();
-//    zend_register_functions(class_entry, class_entry->info.internal.builtin_functions, &class_entry->function_table, EG(current_module)->type);
-//    zend_destroy_modules();
-//    zend_unregister_functions(task_class_entry_p->info.internal.builtin_functions, 3, NULL);
-//    module_destructor(task_class_entry_p->info.internal.module);
     exit(0);
 }
-
 
 void alarm_handler (int signo) {
     switch (signo) {
         case SIGINT :
             timer_exit(signo);
         case SIGALRM:
-            if (zend_call_function(&fi.fci, &fi.fcc) != SUCCESS) {
-                zend_call_function(&fail_fi.fci, &fail_fi.fcc);
+            if (zend_call_function(&fi.fci, &fi.fcc) == FAILURE) {
+                zval_ptr_dtor(&fi);
+                zval_ptr_dtor(&fi);
+                php_printf("execute failed");
+                exit(1);
             }
             break;
         default:
@@ -76,13 +69,14 @@ void init_timer(struct timeval interval) {
     struct itimerval itv;
     itv.it_interval = interval;
 
-    itv.it_value.tv_sec = 0;  // 1秒后启动定时器
+    itv.it_value.tv_sec = 0;  // 0.1秒后启动定时器
     itv.it_value.tv_usec = 100;
 
     setitimer(ITIMER_REAL, &itv, NULL);
 }
 
 // php function
+
 static
 PHP_METHOD(Task, __construct)
 {
@@ -127,7 +121,7 @@ PHP_METHOD(Task, run)
 {
     zend_fcall_info fci = empty_fcall_info;
     zend_fcall_info_cache fcc = empty_fcall_info_cache;
-    zval result, tmp;
+    zval result;
 
     ZEND_PARSE_PARAMETERS_START(1,-1)
     Z_PARAM_FUNC(fci, fcc)
@@ -135,21 +129,16 @@ PHP_METHOD(Task, run)
     ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE); // 参数解析失败返回false
     fci.retval = &result;
 
-//    *return_value = result;
-
     fi.fci = fci;
     fi.fcc = fcc;
 
-//    zval *zv = zend_read_property(task_class_entry_p, ZEND_THIS, "sec", sizeof("sec")-1, 0, NULL);
     zval *zv = zend_read_static_property(task_class_entry_p, "sec", sizeof("sec")-1, 0);
     zend_long sec = zval_get_long(zv);
 
-    // read property of sec's  value
     if (UNEXPECTED(sec == 0)) {
         php_error_docref(NULL, E_ERROR, "must be set time of timer interval in setTime()");
         RETURN_NULL();
     }
-
 
     struct timeval tv, interval;
     interval.tv_sec = sec;
@@ -200,8 +189,6 @@ ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_task_setTime, 0, 2, IS_VOID, 0) 
     ZEND_ARG_TYPE_INFO(0, time, IS_LONG, 0)
     ZEND_ARG_TYPE_INFO(0, type, IS_LONG, 0)
 ZEND_END_ARG_INFO()
-
-
 
 static const zend_function_entry task_functions[] = {
         PHP_ME(Task, __construct, arginfo_task_construct, ZEND_ACC_PUBLIC)
