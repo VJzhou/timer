@@ -31,6 +31,7 @@ function test($a, $b)
 }
 
 $t = new Task;
+$t->setTime(5); // 间隔5秒, type类型却省
 $t->run('test', 'a参数', 'b参数');
 ```
 
